@@ -22,7 +22,7 @@ class LoginScreen extends StatelessWidget {
       final password = auth.loginPasswordController.text.trim();
 
       final uri = Uri.parse(
-        'http://192.168.0.106/expenses/login.php',
+        'http://10.7.27.30/expenses/login.php',
       ); // ← your IP
 
       final response = await http.post(

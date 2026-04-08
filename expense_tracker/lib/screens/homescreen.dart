@@ -1,5 +1,6 @@
 import 'package:expense_tracker/controllers/expenses_controllers.dart';
 import 'package:expense_tracker/controllers/login_controllers.dart';
+import 'package:expense_tracker/controllers/theme_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'add_expense_screen.dart';
@@ -10,13 +11,14 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final expense = Get.find<ExpenseController>();
+    final theme = Get.find<ThemeController>();
     Get.find<AuthController>();
 
     return Scaffold(
       body: SafeArea(
         child: Column(
           children: [
-            // Header
+            // ── Header ───────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               child: Row(
@@ -25,10 +27,10 @@ class HomeScreen extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Welcome back,',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: Theme.of(context).colorScheme.onSurface,
                           fontSize: 14,
                         ),
                       ),
@@ -45,24 +47,47 @@ class HomeScreen extends StatelessWidget {
                   ),
                   Row(
                     children: [
-                      // Logout button
+                      // ── Theme toggle button ───────────────────────
+                      Obx(
+                        () => GestureDetector(
+                          onTap: () => theme.toggleTheme(),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surface,
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Icon(
+                              theme.isDarkMode.value
+                                  ? Icons.light_mode_outlined
+                                  : Icons.dark_mode_outlined,
+                              color: Theme.of(context).colorScheme.onSurface,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+
+                      // ── Logout button ─────────────────────────────
                       GestureDetector(
                         onTap: () => Get.offAllNamed('/login'),
                         child: Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF2A2A3E),
+                            color: Theme.of(context).colorScheme.surface,
                             borderRadius: BorderRadius.circular(14),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.logout,
-                            color: Colors.white,
+                            color: Theme.of(context).colorScheme.onSurface,
                             size: 20,
                           ),
                         ),
                       ),
                       const SizedBox(width: 10),
-                      // Add button
+
+                      // ── Add button ────────────────────────────────
                       GestureDetector(
                         onTap: () => Get.to(() => AddExpenseScreen()),
                         child: Container(
@@ -84,7 +109,7 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
 
-            // Total card
+            // ── Total card ───────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Container(
@@ -104,7 +129,6 @@ class HomeScreen extends StatelessWidget {
                     Text(
                       'Total Spent',
                       style: TextStyle(
-                        // ignore: deprecated_member_use
                         color: Colors.white.withOpacity(0.8),
                         fontSize: 14,
                       ),
@@ -127,14 +151,15 @@ class HomeScreen extends StatelessWidget {
 
             const SizedBox(height: 24),
 
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
+            // ── Section title ────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
                   'Recent Transactions',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -144,7 +169,7 @@ class HomeScreen extends StatelessWidget {
 
             const SizedBox(height: 12),
 
-            // Expense list — Obx watches the full list
+            // ── Expense list ─────────────────────────────────────────
             Expanded(
               child: Obx(() {
                 if (expense.expenses.isEmpty) {
@@ -207,7 +232,7 @@ class HomeScreen extends StatelessWidget {
                         margin: const EdgeInsets.only(bottom: 12),
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF2A2A3E),
+                          color: Theme.of(ctx).colorScheme.surface,
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Row(
@@ -215,7 +240,6 @@ class HomeScreen extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                // ignore: deprecated_member_use
                                 color: color.withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(12),
                               ),
@@ -228,8 +252,10 @@ class HomeScreen extends StatelessWidget {
                                 children: [
                                   Text(
                                     e.title,
-                                    style: const TextStyle(
-                                      color: Colors.white,
+                                    style: TextStyle(
+                                      color: Theme.of(
+                                        ctx,
+                                      ).colorScheme.onSurface,
                                       fontWeight: FontWeight.w600,
                                       fontSize: 15,
                                     ),

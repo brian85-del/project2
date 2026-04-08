@@ -1,106 +1,222 @@
-import 'package:expense_tracker/screens/expenses.dart';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:http/http.dart' as http;
+
+class Expense {
+  final int id;
+  final String title;
+  final String category;
+  final double amount;
+  final DateTime date;
+
+  Expense({
+    required this.id,
+    required this.title,
+    required this.category,
+    required this.amount,
+    required this.date,
+  });
+
+  factory Expense.fromJson(Map<String, dynamic> json) {
+    return Expense(
+      id: int.tryParse(json['id'].toString()) ?? 0,
+      title: json['title'],
+      category: json['category'],
+      amount: double.tryParse(json['amount'].toString()) ?? 0.0,
+      date: DateTime.tryParse(json['date']) ?? DateTime.now(),
+    );
+  }
+}
 
 class ExpenseController extends GetxController {
-  // ── Text controllers ──────────────────────────────────────────────────────
   final titleController = TextEditingController();
   final amountController = TextEditingController();
 
-  // ── Observable state ──────────────────────────────────────────────────────
-  final expenses = <Expense>[].obs;
-  final selectedCategory = 'Food'.obs;
+  final selectedCategory = ''.obs;
   final selectedDate = DateTime.now().obs;
+  final isLoading = false.obs;
 
-  // ── Derived values ────────────────────────────────────────────────────────
+  final expenses = <Expense>[].obs;
+
+  // ── Computed total ───────────────────────────────────────────────────
   double get totalSpent => expenses.fold(0.0, (sum, e) => sum + e.amount);
 
-  // ── Category helpers ──────────────────────────────────────────────────────
-  final categories = [
+  // ── Categories ───────────────────────────────────────────────────────
+  final List<String> categories = [
     'Food',
     'Transport',
     'Shopping',
-    'Bills',
-    'Entertainment',
     'Health',
+    'Entertainment',
+    'Bills',
     'Other',
   ];
 
-  final categoryIcons = <String, IconData>{
+  final Map<String, IconData> categoryIcons = {
     'Food': Icons.restaurant,
     'Transport': Icons.directions_car,
     'Shopping': Icons.shopping_bag,
-    'Bills': Icons.receipt_long,
-    'Entertainment': Icons.movie,
     'Health': Icons.favorite,
-    'Other': Icons.category,
+    'Entertainment': Icons.movie,
+    'Bills': Icons.receipt,
+    'Other': Icons.more_horiz,
   };
 
-  final categoryColors = <String, Color>{
-    'Food': const Color(0xFFFF6B6B),
-    'Transport': const Color(0xFF4ECDC4),
-    'Shopping': const Color(0xFFFFE66D),
-    'Bills': const Color(0xFF95E1D3),
-    'Entertainment': const Color(0xFFF38181),
-    'Health': const Color(0xFF6BCB77),
-    'Other': const Color(0xFFA8A8B3),
+  final Map<String, Color> categoryColors = {
+    'Food': Color(0xFFFF6B6B),
+    'Transport': Color(0xFF4ECDC4),
+    'Shopping': Color(0xFFFFBE0B),
+    'Health': Color(0xFF06D6A0),
+    'Entertainment': Color(0xFFBB86FC),
+    'Bills': Color(0xFF4F86C6),
+    'Other': Color(0xFFA8A8B3),
   };
 
-  // ── Actions ───────────────────────────────────────────────────────────────
+  FormFieldValidator<String>? get validateTitle => null;
 
-  void addExpense(GlobalKey<FormState> formKey) {
-    if (!formKey.currentState!.validate()) return;
+  FormFieldValidator<String>? get validateAmount => null;
 
-    final amount = double.tryParse(amountController.text);
-    if (amount == null || amount <= 0) {
+  void setCategory(String cat) => selectedCategory.value = cat;
+  void setDate(DateTime date) => selectedDate.value = date;
+
+  @override
+  void onInit() {
+    super.onInit();
+    fetchExpenses();
+  }
+
+  // ── GET: Fetch all expenses ──────────────────────────────────────────
+  Future<void> fetchExpenses() async {
+    isLoading.value = true;
+    try {
+      final response = await http.get(
+        Uri.parse('http://127.0.0.1/expenses/add_expenses.php'),
+      );
+      final data = jsonDecode(response.body);
+      if (data['success']) {
+        expenses.value = (data['data'] as List)
+            .map((e) => Expense.fromJson(e))
+            .toList();
+      }
+    } catch (e) {
       Get.snackbar(
         'Error',
-        'Please enter a valid amount',
+        'Could not fetch expenses',
         backgroundColor: const Color(0xFFFF6B6B),
         colorText: Colors.white,
-        snackPosition: SnackPosition.BOTTOM,
+      );
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  // ── POST: Add new expense ────────────────────────────────────────────
+  Future<void> addExpense(GlobalKey<FormState> formKey) async {
+    if (!formKey.currentState!.validate()) return;
+
+    if (selectedCategory.value.isEmpty) {
+      Get.snackbar(
+        'Category Required',
+        'Please select a category',
+        backgroundColor: const Color(0xFFFF6B6B),
+        colorText: Colors.white,
       );
       return;
     }
 
-    expenses.insert(
-      0,
-      Expense(
-        title: titleController.text.trim(),
-        amount: amount,
-        category: selectedCategory.value,
-        date: selectedDate.value,
-      ),
-    );
+    isLoading.value = true;
+    try {
+      final response = await http.post(
+        Uri.parse('http://127.0.0.1/expenses/add_expenses.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'title': titleController.text.trim(),
+          'category': selectedCategory.value,
+          'amount': amountController.text.trim(),
+          'date':
+              '${selectedDate.value.year}-'
+              '${selectedDate.value.month.toString().padLeft(2, '0')}-'
+              '${selectedDate.value.day.toString().padLeft(2, '0')}',
+        }),
+      );
 
-    _clearForm();
-    Get.back(); // close Add Expense screen
+      final data = jsonDecode(response.body);
+
+      if (data['success']) {
+        await fetchExpenses(); // refresh list
+        Get.back();
+        Get.snackbar(
+          'Success',
+          'Expense added successfully',
+          backgroundColor: const Color(0xFF7C3AED),
+          colorText: Colors.white,
+        );
+        _clearForm();
+      } else {
+        Get.snackbar(
+          'Error',
+          data['message'] ?? 'Something went wrong',
+          backgroundColor: const Color(0xFFFF6B6B),
+          colorText: Colors.white,
+        );
+      }
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'Could not connect to server',
+        backgroundColor: const Color(0xFFFF6B6B),
+        colorText: Colors.white,
+      );
+    } finally {
+      isLoading.value = false;
+    }
   }
 
-  void deleteExpense(int index) => expenses.removeAt(index);
+  // ── DELETE: Remove expense by index ─────────────────────────────────
+  Future<void> deleteExpense(int index) async {
+    final expenseToDelete = expenses[index];
+    try {
+      final response = await http.delete(
+        Uri.parse('http://127.0.0.1/expenses/add_expenses.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'id': expenseToDelete.id}),
+      );
 
-  void setCategory(String cat) => selectedCategory.value = cat;
+      final data = jsonDecode(response.body);
 
-  void setDate(DateTime date) => selectedDate.value = date;
+      if (data['success']) {
+        expenses.removeAt(index);
+        Get.snackbar(
+          'Deleted',
+          'Expense removed successfully',
+          backgroundColor: const Color(0xFF7C3AED),
+          colorText: Colors.white,
+        );
+      } else {
+        Get.snackbar(
+          'Error',
+          data['message'] ?? 'Could not delete expense',
+          backgroundColor: const Color(0xFFFF6B6B),
+          colorText: Colors.white,
+        );
+      }
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'Could not connect to server',
+        backgroundColor: const Color(0xFFFF6B6B),
+        colorText: Colors.white,
+      );
+    }
+  }
 
+  // ── Helpers ──────────────────────────────────────────────────────────
   void _clearForm() {
     titleController.clear();
     amountController.clear();
-    selectedCategory.value = 'Food';
+    selectedCategory.value = '';
     selectedDate.value = DateTime.now();
-  }
-
-  // ── Validation ────────────────────────────────────────────────────────────
-  String? validateTitle(String? v) {
-    if (v == null || v.trim().isEmpty) return 'Title is required';
-    return null;
-  }
-
-  String? validateAmount(String? v) {
-    if (v == null || v.isEmpty) return 'Amount is required';
-    final n = double.tryParse(v);
-    if (n == null || n <= 0) return 'Enter a valid amount';
-    return null;
   }
 
   @override
