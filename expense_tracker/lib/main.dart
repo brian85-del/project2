@@ -1,4 +1,4 @@
-import 'package:expense_tracker/controllers/auth_controllers.dart';
+import 'package:expense_tracker/controllers/app_bindings.dart';
 import 'package:expense_tracker/controllers/theme_controller.dart';
 //import 'package:expense_tracker/controllers/expenses_controllers.dart';
 //import 'package:expense_tracker/controllers/login_controllers.dart';
@@ -10,7 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 void main() {
-  final themeController = Get.put(ThemeController());
+  Get.put(ThemeController());
   runApp(const MyApp());
 }
 

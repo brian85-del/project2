@@ -211,6 +211,103 @@ class ExpenseController extends GetxController {
     }
   }
 
+  // ── Budget fields ────────────────────────────────────────────────────
+  final RxDouble totalBudget = 0.0.obs;
+  final RxMap<String, double> categoryBudgets = <String, double>{}.obs;
+  final isBudgetLoading = false.obs;
+
+  final String baseUrl = 'http://127.0.0.1/expenses/budget.php'; // ← your IP
+
+  // ── Computed budget helpers ──────────────────────────────────────────
+  double get projectedSpend {
+    final now = DateTime.now();
+    final daysInMonth = DateUtils.getDaysInMonth(now.year, now.month);
+    if (now.day == 0) return 0;
+    return (totalSpentThisMonth / now.day) * daysInMonth;
+  }
+
+  double get totalSpentThisMonth {
+    final now = DateTime.now();
+    return expenses
+        .where((e) => e.date.month == now.month && e.date.year == now.year)
+        .fold(0.0, (sum, e) => sum + e.amount);
+  }
+
+  double spentForCategory(String category) {
+    final now = DateTime.now();
+    return expenses
+        .where(
+          (e) =>
+              e.category == category &&
+              e.date.month == now.month &&
+              e.date.year == now.year,
+        )
+        .fold(0.0, (sum, e) => sum + e.amount);
+  }
+
+  // ── GET budgets ──────────────────────────────────────────────────────
+  Future<void> fetchBudgets(int userId) async {
+    isBudgetLoading.value = true;
+    try {
+      final now = DateTime.now();
+      final response = await http.get(
+        Uri.parse(
+          '$baseUrl/budget.php?action=get&user_id=$userId&month=${now.month}&year=${now.year}',
+        ),
+      );
+      final data = jsonDecode(response.body);
+      if (data['code'] == 1) {
+        final map = Map<String, double>.from(
+          (data['budgets'] as Map).map(
+            (k, v) => MapEntry(k, (v as num).toDouble()),
+          ),
+        );
+        totalBudget.value = map.remove('overall') ?? 0.0;
+        categoryBudgets.value = map;
+      }
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'Could not load budgets',
+        backgroundColor: const Color(0xFFFF6B6B),
+        colorText: Colors.white,
+      );
+    } finally {
+      isBudgetLoading.value = false;
+    }
+  }
+
+  // ── SAVE budgets ─────────────────────────────────────────────────────
+  Future<bool> saveBudgets(
+    int userId,
+    double overall,
+    Map<String, double> catBudgets,
+  ) async {
+    try {
+      final now = DateTime.now();
+      final allBudgets = {'overall': overall, ...catBudgets};
+      final response = await http.post(
+        Uri.parse('$baseUrl/budget.php'),
+        body: {
+          'action': 'save',
+          'user_id': userId.toString(),
+          'month': now.month.toString(),
+          'year': now.year.toString(),
+          'budgets': jsonEncode(allBudgets),
+        },
+      );
+      final data = jsonDecode(response.body);
+      if (data['code'] == 1) {
+        totalBudget.value = overall;
+        categoryBudgets.value = catBudgets;
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
   // ── Helpers ──────────────────────────────────────────────────────────
   void _clearForm() {
     titleController.clear();

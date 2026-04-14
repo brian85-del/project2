@@ -22,7 +22,7 @@ class LoginScreen extends StatelessWidget {
       final password = auth.loginPasswordController.text.trim();
 
       final uri = Uri.parse(
-        'http://10.7.27.30/expenses/login.php',
+        'http://10.7.26.243/expenses/login.php',
       ); // ← your IP
 
       final response = await http.post(
@@ -33,13 +33,20 @@ class LoginScreen extends StatelessWidget {
       if (response.statusCode == 200) {
         final serverData = jsonDecode(response.body);
       if (serverData['code'] == 1) {
-          final userId = serverData['user_id'];
-          auth.userId.value = (userId is int)
-              ? userId
-              : int.parse(userId.toString()); // ✅ safe cast
-          print('SAVED USER ID: ${auth.userId.value}'); // ← confirm it saved
-          Get.toNamed(AppRoutes.home);
-        }
+  // ✅ user_id is nested inside 'user', not at the top level
+  final userMap = serverData['user'];
+  final userId = userMap['user_id'];
+
+  auth.userId.value = (userId is int)
+      ? userId
+      : int.parse(userId.toString());
+
+  // ✅ Optionally save other user details too
+  print('SAVED USER ID: ${auth.userId.value}');
+  print('FULL NAME: ${userMap['full_name']}');
+
+  Get.toNamed(AppRoutes.home);
+}
         else {
           Get.snackbar(
             'Error',
